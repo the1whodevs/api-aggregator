@@ -5,8 +5,44 @@ namespace ApiAggregator.Application.Aggregation;
 
 public sealed class AggregationService : IAggregationService
 {
-    public Task<AggregatedResponseDto> GetAggregatedDataAsync(AggregationQuery query, CancellationToken cancellationToken) {
+    private readonly IEnumerable<IExternalApiProvider> _providers;
+    
+    public AggregationService(IEnumerable<IExternalApiProvider> providers) {
+        _providers = providers;
+    }
+    
+    /// <summary>
+    /// Aggregates data from all external APIs using a single query.
+    /// </summary>
+    /// <param name="query">The query to use when fetching data.</param>
+    /// <param name="cancellationToken">Token used in case cancellation takes place.</param>
+    /// <returns>Task to await with the custom AggregatedResponsDto, containing the filtered,
+    /// and sorted items result list.</returns>
+    public async Task<AggregatedResponseDto> GetAggregatedDataAsync(AggregationQuery query, CancellationToken cancellationToken) {
+        // Get tasks from all providers...
+        var providerTasks = _providers.Select(provider => provider.GetItemsAsync(query, cancellationToken));
+
+        // Wait for the results from all providers...
+        var providerResults = await Task.WhenAll(providerTasks);
         
+        // Get the items list, filter it and sort it...
+        var items = providerResults.SelectMany(
+                result => result.Items).ToList();
+
+        items = ApplyFiltering(items, query);
+        items = ApplySorting(items, query);
+ 
+        // Get the warnings...
+        var warnings = providerResults
+            .Where(result => !string.IsNullOrWhiteSpace(result.Warning))
+            .Select(result => result.Warning!)
+            .ToList();
+
+        // Create and return the AggregatedResponseDto!
+        return new AggregatedResponseDto() {
+            Items = items,
+            Warnings = warnings
+        };
     }
 
     /// <summary>
