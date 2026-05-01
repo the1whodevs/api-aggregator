@@ -2,7 +2,7 @@ using ApiAggregator.Application.Caching;
 using ApiAggregator.Application.Dtos;
 using ApiAggregator.Application.ExternalApis;
 
-namespace ApiAggregator.Infrastructure.ExternalApis;
+namespace ApiAggregator.Infrastructure.ExternalApis.Mock;
 
 public class MockGitHubProvider : IExternalApiProvider {
     public string Name => "GitHub";

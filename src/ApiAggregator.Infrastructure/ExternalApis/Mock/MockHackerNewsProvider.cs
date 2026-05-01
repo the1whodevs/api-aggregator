@@ -1,7 +1,7 @@
 using ApiAggregator.Application.Dtos;
 using ApiAggregator.Application.ExternalApis;
 
-namespace ApiAggregator.Infrastructure.ExternalApis;
+namespace ApiAggregator.Infrastructure.ExternalApis.Mock;
 
 public class MockHackerNewsProvider : IExternalApiProvider {
     public string Name => "Hacker News";

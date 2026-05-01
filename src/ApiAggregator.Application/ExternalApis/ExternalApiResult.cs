@@ -15,6 +15,17 @@ public sealed class ExternalApiResult
         };   
     }
     
+    public static ExternalApiResult SuccessWithWarning(
+        string source,
+        IReadOnlyList<AggregatedItemDto> items,
+        string warning) {
+        return new ExternalApiResult {
+            Source = source,
+            Items = items,
+            Warning = warning
+        };
+    }
+    
     public static ExternalApiResult Failure(string source, string warning) {
         return new ExternalApiResult {
             Source = source, 

@@ -29,6 +29,8 @@ public sealed class OpenMeteoApiProvider : IExternalApiProvider
         const double longitude = 23.7275;
 
         var cacheKey = $"open-meteo:forecast:{latitude}:{longitude}";
+        
+        var fallbackCacheKey = $"open-meteo:forecast:{latitude}:{longitude}:fallback";
 
         if (_cache.TryGetValue<ExternalApiResult>(cacheKey, out var cachedResult)
             && cachedResult is not null) {
@@ -38,43 +40,70 @@ public sealed class OpenMeteoApiProvider : IExternalApiProvider
         var url =
             $"v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,wind_speed_10m&timezone=auto";
 
-        var response = await _httpClient.GetAsync(url, cancellationToken);
+        try {
+            var response = await _httpClient.GetAsync(url, cancellationToken);
 
-        if (!response.IsSuccessStatusCode) {
-            return ExternalApiResult.Failure(
+            if (!response.IsSuccessStatusCode) {
+                return TryGetFallbackResult(fallbackCacheKey,
+                    $"{Name} API return status code {(int)response.StatusCode}. Returned fallback data if available.");
+            }
+
+            var weatherResponse = await response.Content.ReadFromJsonAsync<OpenMeteoResponse>(
+                cancellationToken);
+
+            if (weatherResponse?.Current is null) {
+                return ExternalApiResult.Failure(
+                    Name,
+                    $"{Name} API returned an empty weather response.");
+            }
+
+            var item = new AggregatedItemDto {
+                Source = Name,
+                Title = "Current weather in Athens",
+                Description =
+                    $"Temperature: {weatherResponse.Current.Temperature2m}°C, " +
+                    $"Wind speed: {weatherResponse.Current.WindSpeed10m} km/h",
+                Category = "weather",
+                Url = "https://open-meteo.com/",
+                PublishedAt = weatherResponse.Current.Time,
+                RelevanceScore = 1
+            };
+
+            var result = ExternalApiResult.Success(Name, [item]);
+
+            _cache.Set(
+                cacheKey,
+                result,
+                TimeSpan.FromMinutes(10));
+
+            _cache.Set(
+                fallbackCacheKey,
+                result,
+                TimeSpan.FromHours(1));
+
+            return result;
+        }
+        catch (OperationCanceledException) {
+            throw;
+        }
+        catch (Exception) {
+            return TryGetFallbackResult(fallbackCacheKey,
+                $"{Name} API failed. Returned fallback data if available.");
+        }
+    }
+    
+    private ExternalApiResult TryGetFallbackResult( string fallbackCacheKey, string warning) {
+        if (_cache.TryGetValue<ExternalApiResult>(fallbackCacheKey, out var fallbackResult)
+            && fallbackResult is not null) {
+            return ExternalApiResult.SuccessWithWarning(
                 Name,
-                $"{Name} API returned status code {(int)response.StatusCode}.");
+                fallbackResult.Items,
+                warning);
         }
 
-        var weatherResponse = await response.Content.ReadFromJsonAsync<OpenMeteoResponse>(
-            cancellationToken);
-
-        if (weatherResponse?.Current is null) {
-            return ExternalApiResult.Failure(
-                Name,
-                $"{Name} API returned an empty weather response.");
-        }
-
-        var item = new AggregatedItemDto {
-            Source = Name,
-            Title = "Current weather in Athens",
-            Description =
-                $"Temperature: {weatherResponse.Current.Temperature2m}°C, " +
-                $"Wind speed: {weatherResponse.Current.WindSpeed10m} km/h",
-            Category = "weather",
-            Url = "https://open-meteo.com/",
-            PublishedAt = weatherResponse.Current.Time,
-            RelevanceScore = 1
-        };
-
-        var result = ExternalApiResult.Success(Name, [item]);
-
-        _cache.Set(
-            cacheKey,
-            result,
-            TimeSpan.FromMinutes(10));
-
-        return result;
+        return ExternalApiResult.Failure(
+            Name,
+            $"{Name} API failed and no fallback data was available.");
     }
 
     private sealed class OpenMeteoResponse 

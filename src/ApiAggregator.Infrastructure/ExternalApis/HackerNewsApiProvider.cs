@@ -28,6 +28,7 @@ public sealed class HackerNewsApiProvider : IExternalApiProvider
         CancellationToken cancellationToken)
     {
         var cacheKey = $"hacker-news:top-stories:{query.Query}:{query.Category}";
+        var fallbackCacheKey = $"hacker-news:top-stories:{query.Query}:{query.Category}:fallback";
 
         if (_cache.TryGetValue<ExternalApiResult>(cacheKey, out var cachedResult)
             && cachedResult is not null)
@@ -35,52 +36,77 @@ public sealed class HackerNewsApiProvider : IExternalApiProvider
             return cachedResult;
         }
 
-        var storyIds = await _httpClient.GetFromJsonAsync<List<int>>(
-            "topstories.json",
-            cancellationToken);
+        try {
+            var storyIds = await _httpClient.GetFromJsonAsync<List<int>>(
+                "topstories.json",
+                cancellationToken);
 
-        if (storyIds is null || storyIds.Count == 0)
-        {
-            return ExternalApiResult.Failure(
+            if (storyIds is null || storyIds.Count == 0) {
+                return TryGetFallbackResult(fallbackCacheKey,
+                    $"{Name} API returned no story ids.");
+            }
+
+            var selectedStoryIds = storyIds.Take(10).ToList();
+
+            var storyTasks = selectedStoryIds.Select(storyId =>
+                _httpClient.GetFromJsonAsync<HackerNewsItemDto>(
+                    $"item/{storyId}.json",
+                    cancellationToken));
+
+            var stories = await Task.WhenAll(storyTasks);
+
+            var items = stories
+                .Where(story => story is not null)
+                .Select(story => story!)
+                .Where(story => !string.IsNullOrWhiteSpace(story.Title))
+                .Select(story => new AggregatedItemDto {
+                    Source = Name,
+                    Title = story.Title!,
+                    Description = $"Score: {story.Score}, comments: {story.Descendants}",
+                    Category = "technology",
+                    Url = !string.IsNullOrWhiteSpace(story.Url)
+                        ? story.Url
+                        : $"https://news.ycombinator.com/item?id={story.Id}",
+                    PublishedAt = DateTimeOffset.FromUnixTimeSeconds(story.Time),
+                    RelevanceScore = story.Score
+                })
+                .ToList();
+
+            var result = ExternalApiResult.Success(Name, items);
+
+            _cache.Set(
+                cacheKey,
+                result,
+                TimeSpan.FromMinutes(5));
+            
+            _cache.Set(
+                fallbackCacheKey,
+                result,
+                TimeSpan.FromHours(1));
+            
+            return result;
+        }
+        catch (OperationCanceledException) {
+            throw;
+        }
+        catch (Exception) {
+            return TryGetFallbackResult(fallbackCacheKey,
+                $"{Name} API failed. Returned fallback data if available.");
+        }
+    }
+    
+    private ExternalApiResult TryGetFallbackResult( string fallbackCacheKey, string warning) {
+        if (_cache.TryGetValue<ExternalApiResult>(fallbackCacheKey, out var fallbackResult)
+            && fallbackResult is not null) {
+            return ExternalApiResult.SuccessWithWarning(
                 Name,
-                $"{Name} API returned no story ids.");
+                fallbackResult.Items,
+                warning);
         }
 
-        var selectedStoryIds = storyIds.Take(10).ToList();
-
-        var storyTasks = selectedStoryIds.Select(storyId =>
-            _httpClient.GetFromJsonAsync<HackerNewsItemDto>(
-                $"item/{storyId}.json",
-                cancellationToken));
-
-        var stories = await Task.WhenAll(storyTasks);
-
-        var items = stories
-            .Where(story => story is not null)
-            .Select(story => story!)
-            .Where(story => !string.IsNullOrWhiteSpace(story.Title))
-            .Select(story => new AggregatedItemDto
-            {
-                Source = Name,
-                Title = story.Title!,
-                Description = $"Score: {story.Score}, comments: {story.Descendants}",
-                Category = "technology",
-                Url = !string.IsNullOrWhiteSpace(story.Url)
-                    ? story.Url
-                    : $"https://news.ycombinator.com/item?id={story.Id}",
-                PublishedAt = DateTimeOffset.FromUnixTimeSeconds(story.Time),
-                RelevanceScore = story.Score
-            })
-            .ToList();
-
-        var result = ExternalApiResult.Success(Name, items);
-
-        _cache.Set(
-            cacheKey,
-            result,
-            TimeSpan.FromMinutes(5));
-
-        return result;
+        return ExternalApiResult.Failure(
+            Name,
+            $"{Name} API failed and no fallback data was available.");
     }
 
     private sealed class HackerNewsItemDto

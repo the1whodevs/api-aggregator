@@ -13,14 +13,37 @@ public sealed class AggregationController : ControllerBase {
     public AggregationController(IAggregationService aggregationService) {
         _aggregationService = aggregationService;
     }
-
+    
     [HttpGet]
     public async Task<ActionResult<AggregatedResponseDto>> GetAggregatedData(
-        [FromQuery] AggregationQuery query,
-        CancellationToken cancellationToken) {
+        [FromQuery] string? query,
+        [FromQuery] string? category,
+        [FromQuery] string sortBy = "date",
+        [FromQuery] string sortDirection = "desc",
+        CancellationToken cancellationToken = default)
+    {
+        var aggregationQuery = new AggregationQuery
+        {
+            Query = query,
+            Category = category,
+            SortBy = sortBy,
+            SortDirection = sortDirection
+        };
+
         var response = await _aggregationService.GetAggregatedDataAsync(
-            query, cancellationToken);
+            aggregationQuery,
+            cancellationToken);
 
         return Ok(response);
     }
+
+    // [HttpGet]
+    // public async Task<ActionResult<AggregatedResponseDto>> GetAggregatedData(
+    //     [FromQuery] AggregationQuery query,
+    //     CancellationToken cancellationToken) {
+    //     var response = await _aggregationService.GetAggregatedDataAsync(
+    //         query, cancellationToken);
+    //
+    //     return Ok(response);
+    // }
 }
