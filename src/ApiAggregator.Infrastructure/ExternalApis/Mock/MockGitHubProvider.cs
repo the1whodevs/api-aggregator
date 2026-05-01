@@ -13,13 +13,13 @@ public class MockGitHubProvider : IExternalApiProvider {
         _cache = cache;
     }
     
-    public async Task<ExternalApiResult> GetItemsAsync(AggregationQuery query, CancellationToken cancellationToken) {
+    public Task<ExternalApiResult> GetItemsAsync(AggregationQuery query, CancellationToken cancellationToken) {
         var cacheKey = $"fake-github:{query.Query}:{query.Category}";
         
         if (_cache.TryGetValue<ExternalApiResult>(cacheKey, out var cachedResult)
             && cachedResult is not null)
         {
-            return cachedResult;
+            return Task.FromResult(cachedResult);
         }
         
         var items = new List<AggregatedItemDto> {
@@ -41,6 +41,6 @@ public class MockGitHubProvider : IExternalApiProvider {
             result,
             TimeSpan.FromMinutes(5));
 
-        return result;
+        return Task.FromResult(result);
     }
 }

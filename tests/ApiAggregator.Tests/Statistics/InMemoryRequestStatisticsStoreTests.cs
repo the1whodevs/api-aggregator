@@ -75,4 +75,81 @@ public sealed class InMemoryRequestStatisticsStoreTests
         githubStats.TotalRequests.Should().Be(1_000);
         githubStats.Buckets.Fast.Should().Be(1_000);
     }
+
+    [Fact]
+    public void GetPerformanceAnalysis_WhenRecentAverageIsNormal_DoesNotReturnAnomaly() {
+        var nowUtc = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
+        var store = new InMemoryRequestStatisticsStore();
+
+        RecordSamples(store, "GitHub", TimeSpan.FromMilliseconds(100), nowUtc.AddMinutes(-10), 5);
+        RecordSamples(store, "GitHub", TimeSpan.FromMilliseconds(120), nowUtc.AddMinutes(-2), 3);
+
+        var analysis = store.GetPerformanceAnalysis(
+            TimeSpan.FromMinutes(5),
+            nowUtc,
+            thresholdPercentage: 50,
+            minimumRecentSamples: 3);
+
+        var githubAnalysis = analysis.Should().ContainSingle().Subject;
+        githubAnalysis.IsAnomaly.Should().BeFalse();
+        githubAnalysis.RecentRequestCount.Should().Be(3);
+        githubAnalysis.TotalAverageResponseTimeMs.Should().Be(100);
+        githubAnalysis.RecentAverageResponseTimeMs.Should().Be(120);
+    }
+
+    [Fact]
+    public void GetPerformanceAnalysis_WhenRecentAverageExceedsThreshold_ReturnsAnomaly() {
+        var nowUtc = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
+        var store = new InMemoryRequestStatisticsStore();
+
+        RecordSamples(store, "GitHub", TimeSpan.FromMilliseconds(100), nowUtc.AddMinutes(-10), 5);
+        RecordSamples(store, "GitHub", TimeSpan.FromMilliseconds(200), nowUtc.AddMinutes(-2), 3);
+
+        var analysis = store.GetPerformanceAnalysis(
+            TimeSpan.FromMinutes(5),
+            nowUtc,
+            thresholdPercentage: 50,
+            minimumRecentSamples: 3);
+
+        var githubAnalysis = analysis.Should().ContainSingle().Subject;
+        githubAnalysis.IsAnomaly.Should().BeTrue();
+        githubAnalysis.RecentRequestCount.Should().Be(3);
+        githubAnalysis.TotalAverageResponseTimeMs.Should().Be(100);
+        githubAnalysis.RecentAverageResponseTimeMs.Should().Be(200);
+        githubAnalysis.PercentageIncrease.Should().Be(100);
+    }
+
+    [Fact]
+    public void GetPerformanceAnalysis_WhenRecentSampleCountIsBelowMinimum_DoesNotReturnAnomaly() {
+        var nowUtc = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
+        var store = new InMemoryRequestStatisticsStore();
+
+        RecordSamples(store, "GitHub", TimeSpan.FromMilliseconds(100), nowUtc.AddMinutes(-10), 5);
+        RecordSamples(store, "GitHub", TimeSpan.FromMilliseconds(300), nowUtc.AddMinutes(-2), 2);
+
+        var analysis = store.GetPerformanceAnalysis(
+            TimeSpan.FromMinutes(5),
+            nowUtc,
+            thresholdPercentage: 50,
+            minimumRecentSamples: 3);
+
+        var githubAnalysis = analysis.Should().ContainSingle().Subject;
+        githubAnalysis.IsAnomaly.Should().BeFalse();
+        githubAnalysis.RecentRequestCount.Should().Be(2);
+        githubAnalysis.PercentageIncrease.Should().Be(200);
+    }
+
+    private static void RecordSamples(
+        InMemoryRequestStatisticsStore store,
+        string apiName,
+        TimeSpan responseTime,
+        DateTimeOffset firstTimestampUtc,
+        int count) {
+        for (var index = 0; index < count; index++) {
+            store.RecordRequest(
+                apiName,
+                responseTime,
+                firstTimestampUtc.AddSeconds(index));
+        }
+    }
 }

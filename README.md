@@ -47,6 +47,8 @@ Swagger UI is enabled at `/swagger`.
 
 This project includes a simple demo JWT login for assignment purposes. It does not use ASP.NET Identity, user registration, cookies, refresh tokens, or a database.
 
+The JWT secret in `appsettings.json` is a development-only value included only for this exercise. It is not a real, personal, or production secret key.
+
 Use the demo credentials:
 
 ```json
@@ -170,6 +172,24 @@ Statistics include total request count, average response time in milliseconds, a
 | Open-Meteo | Current temperature and wind speed for Athens | 10 minutes |
 
 Fallback cache entries are retained for 1 hour after successful provider calls.
+
+## Performance Anomaly Logging
+
+The application includes an optional background service that periodically analyzes recent external API response times. If an API's recent average response time exceeds its baseline average by the configured threshold, a warning is logged through ASP.NET Core logging.
+
+The feature is configured in `appsettings.json`:
+
+```json
+"PerformanceAnomaly": {
+  "Enabled": true,
+  "CheckIntervalSeconds": 60,
+  "RecentWindowMinutes": 5,
+  "ThresholdPercentage": 50,
+  "MinimumRecentSamples": 3
+}
+```
+
+By default, the service checks every 60 seconds, compares the last 5 minutes of samples against the retained baseline, and logs only when at least 3 recent samples are available.
 
 ## Testing
 

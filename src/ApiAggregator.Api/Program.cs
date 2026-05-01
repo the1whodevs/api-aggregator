@@ -1,5 +1,6 @@
 using System.Text;
 using ApiAggregator.Api.Auth;
+using ApiAggregator.Api.Performance;
 using ApiAggregator.Application.Aggregation;
 using ApiAggregator.Application.Caching;
 using ApiAggregator.Application.ExternalApis;
@@ -41,6 +42,9 @@ builder.Services.AddSwaggerGen(options => {
 builder.Services.Configure<JwtOptions>(
     builder.Configuration.GetSection(JwtOptions.SectionName));
 
+builder.Services.Configure<PerformanceAnomalyOptions>(
+    builder.Configuration.GetSection(PerformanceAnomalyOptions.SectionName));
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options => {
@@ -60,6 +64,7 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IAggregationService, AggregationService>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
+builder.Services.AddHostedService<PerformanceAnomalyBackgroundService>();
 
 // Register each provider against the same abstraction. AggregationService receives
 // all of them through IEnumerable<IExternalApiProvider> and runs them together.
