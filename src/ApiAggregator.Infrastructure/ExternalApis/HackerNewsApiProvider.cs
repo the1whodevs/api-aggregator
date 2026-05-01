@@ -12,7 +12,10 @@ public sealed class HackerNewsApiProvider : IExternalApiProvider
     private readonly IExternalApiCache _cache;
 
     public string Name => "Hacker News";
-
+    
+    const string cacheKey = "hacker-news:top-stories";
+    const string fallbackCacheKey = "hacker-news:top-stories:fallback";
+    
     public HackerNewsApiProvider(
         HttpClient httpClient,
         IExternalApiCache cache)
@@ -27,9 +30,6 @@ public sealed class HackerNewsApiProvider : IExternalApiProvider
         AggregationQuery query,
         CancellationToken cancellationToken)
     {
-        var cacheKey = $"hacker-news:top-stories:{query.Query}:{query.Category}";
-        var fallbackCacheKey = $"hacker-news:top-stories:{query.Query}:{query.Category}:fallback";
-
         if (_cache.TryGetValue<ExternalApiResult>(cacheKey, out var cachedResult)
             && cachedResult is not null)
         {

@@ -45,16 +45,16 @@ public sealed class OpenMeteoApiProvider : IExternalApiProvider
 
             if (!response.IsSuccessStatusCode) {
                 return TryGetFallbackResult(fallbackCacheKey,
-                    $"{Name} API return status code {(int)response.StatusCode}. Returned fallback data if available.");
+                    $"{Name} API returned status code {(int)response.StatusCode}. Returned fallback data if available.");
             }
 
             var weatherResponse = await response.Content.ReadFromJsonAsync<OpenMeteoResponse>(
                 cancellationToken);
 
             if (weatherResponse?.Current is null) {
-                return ExternalApiResult.Failure(
-                    Name,
-                    $"{Name} API returned an empty weather response.");
+                return TryGetFallbackResult(
+                    fallbackCacheKey,
+                    $"{Name} API returned an empty weather response. Returned fallback data if available.");
             }
 
             var item = new AggregatedItemDto {

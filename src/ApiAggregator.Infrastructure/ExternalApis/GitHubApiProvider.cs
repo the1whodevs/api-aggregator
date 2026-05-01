@@ -24,7 +24,7 @@ public sealed class GitHubApiProvider : IExternalApiProvider {
     public async Task<ExternalApiResult> GetItemsAsync(AggregationQuery query, CancellationToken cancellationToken) {
         var searchTerm = string.IsNullOrWhiteSpace(query.Query)
             ? "csharp"
-            : query.Query;
+            : query.Query.Trim();
         
         // Used for performance
         var cacheKey = $"github:repositories:{searchTerm}";
