@@ -1,14 +1,18 @@
+using System.Diagnostics;
 using ApiAggregator.Application.Dtos;
 using ApiAggregator.Application.ExternalApis;
+using ApiAggregator.Application.Statistics;
 
 namespace ApiAggregator.Application.Aggregation;
 
 public sealed class AggregationService : IAggregationService
 {
     private readonly IEnumerable<IExternalApiProvider> _providers;
+    private readonly IRequestStatisticsStore _statisticsStore;
     
-    public AggregationService(IEnumerable<IExternalApiProvider> providers) {
+    public AggregationService(IEnumerable<IExternalApiProvider> providers, IRequestStatisticsStore statisticsStore) {
         _providers = providers;
+        _statisticsStore = statisticsStore;
     }
     
     /// <summary>
@@ -20,8 +24,8 @@ public sealed class AggregationService : IAggregationService
     /// and sorted items result list.</returns>
     public async Task<AggregatedResponseDto> GetAggregatedDataAsync(AggregationQuery query, CancellationToken cancellationToken) {
         // Get tasks from all providers...
-        var providerTasks = _providers.Select(provider => provider.GetItemsAsync(query, cancellationToken));
-
+        var providerTasks = _providers.Select(provider => ExecuteProviderAsync(provider, query, cancellationToken));
+        
         // Wait for the results from all providers...
         var providerResults = await Task.WhenAll(providerTasks);
         
@@ -43,6 +47,30 @@ public sealed class AggregationService : IAggregationService
             Items = items,
             Warnings = warnings
         };
+    }
+
+    private async Task<ExternalApiResult> ExecuteProviderAsync(
+        IExternalApiProvider provider, 
+        AggregationQuery query,
+        CancellationToken cancellationToken) {
+        
+        var timer = Stopwatch.StartNew();
+
+        try {
+            return await provider.GetItemsAsync(query, cancellationToken);
+        }
+        catch (OperationCanceledException) {
+            throw;
+        }
+        catch (Exception) {
+            return ExternalApiResult.Failure(
+                provider.Name,
+                $"{provider.Name} API failed. Partial aggregated data returned.");
+        }
+        finally {
+            timer.Stop();
+            _statisticsStore.RecordRequest(provider.Name, timer.Elapsed);
+        }
     }
 
     /// <summary>

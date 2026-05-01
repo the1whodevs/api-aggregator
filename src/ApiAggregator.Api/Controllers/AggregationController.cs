@@ -1,5 +1,6 @@
 using ApiAggregator.Application.Aggregation;
 using ApiAggregator.Application.Dtos;
+using ApiAggregator.Application.Statistics;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApiAggregator.Api.Controllers;
