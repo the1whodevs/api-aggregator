@@ -14,6 +14,7 @@ public sealed class AggregationController : ControllerBase {
         _aggregationService = aggregationService;
     }
     
+    // Keep query binding explicit so the public API contract is clear in Swagger.
     [HttpGet]
     public async Task<ActionResult<AggregatedResponseDto>> GetAggregatedData(
         [FromQuery] string? query,
@@ -36,14 +37,4 @@ public sealed class AggregationController : ControllerBase {
 
         return Ok(response);
     }
-
-    // [HttpGet]
-    // public async Task<ActionResult<AggregatedResponseDto>> GetAggregatedData(
-    //     [FromQuery] AggregationQuery query,
-    //     CancellationToken cancellationToken) {
-    //     var response = await _aggregationService.GetAggregatedDataAsync(
-    //         query, cancellationToken);
-    //
-    //     return Ok(response);
-    // }
 }

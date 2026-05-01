@@ -4,7 +4,7 @@ using ApiAggregator.Application.Statistics;
 namespace ApiAggregator.Infrastructure.Statistics;
 
 public sealed class InMemoryRequestStatisticsStore : IRequestStatisticsStore {
-    // Safely store one accumulator per API!
+    // The dictionary protects provider lookup; each accumulator protects its own counters.
     private readonly ConcurrentDictionary<string, ApiStatisticsAccumulator> _statistics = new();
     
     public void RecordRequest(string apiName, TimeSpan responseTime) {
@@ -45,7 +45,6 @@ public sealed class InMemoryRequestStatisticsStore : IRequestStatisticsStore {
         public void Record(TimeSpan responseTime) {
             var responseTimeMs = responseTime.TotalMilliseconds;
 
-            // Ensure values updated consistently...
             lock (_lock) {
                 _totalRequests++;
                 _totalResponseTimeMs += responseTimeMs;
@@ -63,7 +62,7 @@ public sealed class InMemoryRequestStatisticsStore : IRequestStatisticsStore {
         }
 
         public ApiStatisticsSnapshot GetSnapshot() {
-            // Ensure values returned consistently...
+            // Return a consistent point-in-time view without exposing mutable counters.
             lock (_lock) {
                 return new ApiStatisticsSnapshot {
                     TotalRequests = _totalRequests,

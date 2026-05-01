@@ -25,6 +25,7 @@ public sealed class OpenMeteoApiProvider : IExternalApiProvider
     public async Task<ExternalApiResult> GetItemsAsync(
         AggregationQuery query,
         CancellationToken cancellationToken) {
+        // This provider is fixed to Athens. TODO: Make these values configurable if more locations are needed.
         const double latitude = 37.9838;
         const double longitude = 23.7275;
 
@@ -57,6 +58,7 @@ public sealed class OpenMeteoApiProvider : IExternalApiProvider
                     $"{Name} API returned an empty weather response. Returned fallback data if available.");
             }
 
+            // Weather is a single current-state item, unlike the list-based news/repository providers.
             var item = new AggregatedItemDto {
                 Source = Name,
                 Title = "Current weather in Athens",
@@ -93,6 +95,7 @@ public sealed class OpenMeteoApiProvider : IExternalApiProvider
     }
     
     private ExternalApiResult TryGetFallbackResult( string fallbackCacheKey, string warning) {
+        // Returning stale data with a warning is better for callers than failing the whole aggregation.
         if (_cache.TryGetValue<ExternalApiResult>(fallbackCacheKey, out var fallbackResult)
             && fallbackResult is not null) {
             return ExternalApiResult.SuccessWithWarning(

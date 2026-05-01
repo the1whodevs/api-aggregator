@@ -1,5 +1,8 @@
 namespace ApiAggregator.Application.Dtos;
 
+/// <summary>
+/// Query options accepted by the aggregation endpoint.
+/// </summary>
 public sealed class AggregationQuery
 {
     public string? Query { get; init; }

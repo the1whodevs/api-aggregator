@@ -1,5 +1,8 @@
 namespace ApiAggregator.Application.Dtos;
 
+/// <summary>
+/// Normalized item returned by any external provider.
+/// </summary>
 public sealed class AggregatedItemDto
 {
     public string Source { get; init; } = string.Empty;

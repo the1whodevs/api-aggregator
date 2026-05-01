@@ -26,13 +26,12 @@ public sealed class GitHubApiProvider : IExternalApiProvider {
             ? "csharp"
             : query.Query.Trim();
         
-        // Used for performance
+        // Performance cache avoids repeated calls for the same search term.
         var cacheKey = $"github:repositories:{searchTerm}";
         
-        // Used in case of API failure
+        // Fallback cache keeps the last successful result available during provider outages.
         var fallbackCacheKey = $"github:repositories:{searchTerm}:fallback";
         
-        // If there's a performance cache available on this search term, return that instead!
         if (_cache.TryGetValue<ExternalApiResult>(cacheKey, out var cachedResult) &&
             cachedResult is not null) {
             return cachedResult;
@@ -51,6 +50,7 @@ public sealed class GitHubApiProvider : IExternalApiProvider {
             var githubResponse = await response.Content.ReadFromJsonAsync<GitHubSearchResponse>(
                 cancellationToken);
 
+            // Map GitHub's response shape into the common item contract used by the API.
             var items = githubResponse?.Items?
                 .Select(repo => new AggregatedItemDto {
                     Source = Name,
@@ -65,13 +65,11 @@ public sealed class GitHubApiProvider : IExternalApiProvider {
 
             var result = ExternalApiResult.Success(Name, items);
 
-            // Update performance cache
             _cache.Set(
                 cacheKey,
                 result,
                 TimeSpan.FromMinutes(5));
 
-            // Update fallback cache
             _cache.Set(
                 fallbackCacheKey,
                 result,
@@ -90,6 +88,7 @@ public sealed class GitHubApiProvider : IExternalApiProvider {
     }
     
     private ExternalApiResult TryGetFallbackResult( string fallbackCacheKey, string warning) {
+        // Returning stale data with a warning is better for callers than failing the whole aggregation.
         if (_cache.TryGetValue<ExternalApiResult>(fallbackCacheKey, out var fallbackResult)
             && fallbackResult is not null) {
             return ExternalApiResult.SuccessWithWarning(

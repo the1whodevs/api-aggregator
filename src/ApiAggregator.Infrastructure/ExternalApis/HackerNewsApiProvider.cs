@@ -48,6 +48,7 @@ public sealed class HackerNewsApiProvider : IExternalApiProvider
 
             var selectedStoryIds = storyIds.Take(10).ToList();
 
+            // The top-stories endpoint only returns ids, so fetch item details in parallel.
             var storyTasks = selectedStoryIds.Select(storyId =>
                 _httpClient.GetFromJsonAsync<HackerNewsItemDto>(
                     $"item/{storyId}.json",
@@ -55,6 +56,7 @@ public sealed class HackerNewsApiProvider : IExternalApiProvider
 
             var stories = await Task.WhenAll(storyTasks);
 
+            // Hacker News stories without an external URL still have a comments page.
             var items = stories
                 .Where(story => story is not null)
                 .Select(story => story!)
@@ -96,6 +98,7 @@ public sealed class HackerNewsApiProvider : IExternalApiProvider
     }
     
     private ExternalApiResult TryGetFallbackResult( string fallbackCacheKey, string warning) {
+        // Returning stale data with a warning is better for callers than failing the whole aggregation.
         if (_cache.TryGetValue<ExternalApiResult>(fallbackCacheKey, out var fallbackResult)
             && fallbackResult is not null) {
             return ExternalApiResult.SuccessWithWarning(

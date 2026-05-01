@@ -23,13 +23,11 @@ public sealed class AggregationService : IAggregationService
     /// <returns>Task to await with the custom AggregatedResponseDto, containing the filtered,
     /// and sorted items result list.</returns>
     public async Task<AggregatedResponseDto> GetAggregatedDataAsync(AggregationQuery query, CancellationToken cancellationToken) {
-        // Get tasks from all providers...
+        // Start every provider call before awaiting so slow APIs do not block fast ones.
         var providerTasks = _providers.Select(provider => ExecuteProviderAsync(provider, query, cancellationToken));
         
-        // Wait for the results from all providers...
         var providerResults = await Task.WhenAll(providerTasks);
         
-        // Get the items list, filter it and sort it...
         var items = providerResults.SelectMany(
                 result => result.Items).ToList();
 
@@ -42,7 +40,6 @@ public sealed class AggregationService : IAggregationService
             .Select(result => result.Warning!)
             .ToList();
 
-        // Create and return the AggregatedResponseDto!
         return new AggregatedResponseDto() {
             Items = items,
             Warnings = warnings
@@ -60,6 +57,8 @@ public sealed class AggregationService : IAggregationService
             return await provider.GetItemsAsync(query, cancellationToken);
         }
         catch (OperationCanceledException) {
+            // Request cancellation should remain visible to ASP.NET Core instead of
+            // being converted into a partial-result warning.
             throw;
         }
         catch (Exception) {
@@ -68,6 +67,7 @@ public sealed class AggregationService : IAggregationService
                 $"{provider.Name} API failed. Partial aggregated data returned.");
         }
         finally {
+            // Track timing for both successful and failed provider calls.
             timer.Stop();
             _statisticsStore.RecordRequest(provider.Name, timer.Elapsed);
         }
@@ -80,18 +80,14 @@ public sealed class AggregationService : IAggregationService
     /// <param name="query">The query to filter with.</param>
     /// <returns>The filtered item list.</returns>
     public static List<AggregatedItemDto> ApplyFiltering(IEnumerable<AggregatedItemDto> items, AggregationQuery query) {
-        // If query.Category is valid...
         if (!string.IsNullOrWhiteSpace(query.Category)) {
-            // ...filter items where category matches query.Category
             items = items.Where(item => string.Equals(
                 item.Category,
                 query.Category,
                 StringComparison.OrdinalIgnoreCase));
         }
 
-        // AND if query.Query is valid...
         if (!string.IsNullOrWhiteSpace(query.Query)) {
-            // ...filter items where title or description contains query.Query
             items = items.Where(item => 
                 item.Title.Contains(query.Query, StringComparison.OrdinalIgnoreCase) ||
                 (item.Description?.Contains(query.Query, StringComparison.OrdinalIgnoreCase) ?? false));
@@ -117,6 +113,9 @@ public sealed class AggregationService : IAggregationService
                 items.OrderByDescending(item => item.RelevanceScore).ToList() : items.OrderBy(item => item.RelevanceScore).ToList(),
             
             "date" => descending ?
+                items.OrderByDescending(item => item.PublishedAt).ToList() : items.OrderBy(item => item.PublishedAt).ToList(),
+
+            _ => descending ?
                 items.OrderByDescending(item => item.PublishedAt).ToList() : items.OrderBy(item => item.PublishedAt).ToList()
         };
     }

@@ -43,7 +43,55 @@ The development launch profile uses:
 
 Swagger UI is enabled at `/swagger`.
 
+## Authentication
+
+This project includes a simple demo JWT login for assignment purposes. It does not use ASP.NET Identity, user registration, cookies, refresh tokens, or a database.
+
+Use the demo credentials:
+
+```json
+{
+  "username": "admin",
+  "password": "password"
+}
+```
+
+Swagger flow:
+
+1. Call `POST /api/Auth/login`.
+2. Copy the `accessToken` from the response.
+3. Click **Authorize** in Swagger.
+4. Paste only the token value, without `Bearer`.
+5. Call `GET /api/Statistics`.
+
+`GET /api/Aggregation` is public. `GET /api/Statistics` requires a valid Bearer token.
+
 ## API Endpoints
+
+### Login
+
+```http
+POST /api/Auth/login
+```
+
+Request:
+
+```json
+{
+  "username": "admin",
+  "password": "password"
+}
+```
+
+Response:
+
+```json
+{
+  "accessToken": "...",
+  "tokenType": "Bearer",
+  "expiresInSeconds": 3600
+}
+```
 
 ### Get Aggregated Data
 
@@ -93,10 +141,18 @@ If one provider fails, the API returns partial data from the successful provider
 GET /api/statistics
 ```
 
+This endpoint requires a Bearer token from `POST /api/Auth/login`.
+
 Example:
 
 ```powershell
-Invoke-RestMethod "http://localhost:5057/api/statistics"
+$login = Invoke-RestMethod "http://localhost:5057/api/Auth/login" `
+  -Method Post `
+  -ContentType "application/json" `
+  -Body '{"username":"admin","password":"password"}'
+
+Invoke-RestMethod "http://localhost:5057/api/statistics" `
+  -Headers @{ Authorization = "Bearer $($login.accessToken)" }
 ```
 
 Statistics include total request count, average response time in milliseconds, and response time buckets:
@@ -130,4 +186,3 @@ The tests cover:
 - Filtering by category
 - Sorting by relevance
 - Thread-safe in-memory statistics recording and performance buckets
-
