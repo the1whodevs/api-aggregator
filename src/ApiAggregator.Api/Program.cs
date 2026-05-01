@@ -1,6 +1,8 @@
 using ApiAggregator.Application.Aggregation;
+using ApiAggregator.Application.Caching;
 using ApiAggregator.Application.ExternalApis;
 using ApiAggregator.Application.Statistics;
+using ApiAggregator.Infrastructure.Caching;
 using ApiAggregator.Infrastructure.ExternalApis;
 using ApiAggregator.Infrastructure.Statistics;
 
@@ -17,6 +19,8 @@ builder.Services.AddScoped<IExternalApiProvider, MockGitHubProvider>();
 builder.Services.AddScoped<IExternalApiProvider, MockWeatherProvider>();
 builder.Services.AddScoped<IExternalApiProvider, MockHackerNewsProvider>();
 
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IExternalApiCache, MemoryExternalApiCache>(); 
 builder.Services.AddSingleton<IRequestStatisticsStore, InMemoryRequestStatisticsStore>();
 
 var app = builder.Build();
