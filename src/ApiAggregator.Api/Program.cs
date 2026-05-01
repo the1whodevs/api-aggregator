@@ -15,7 +15,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<IAggregationService, AggregationService>();
 
-builder.Services.AddScoped<IExternalApiProvider, MockGitHubProvider>();
+builder.Services.AddHttpClient<IExternalApiProvider, GitHubApiProvider>();
 builder.Services.AddScoped<IExternalApiProvider, MockWeatherProvider>();
 builder.Services.AddScoped<IExternalApiProvider, MockHackerNewsProvider>();
 
