@@ -17,8 +17,7 @@ builder.Services.AddScoped<IAggregationService, AggregationService>();
 
 builder.Services.AddHttpClient<IExternalApiProvider, GitHubApiProvider>();
 builder.Services.AddHttpClient<IExternalApiProvider, OpenMeteoApiProvider>();
-
-builder.Services.AddScoped<IExternalApiProvider, MockHackerNewsProvider>();
+builder.Services.AddHttpClient<IExternalApiProvider, HackerNewsApiProvider>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IExternalApiCache, MemoryExternalApiCache>(); 
