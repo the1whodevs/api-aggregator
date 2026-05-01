@@ -16,7 +16,7 @@ public sealed class AggregationService : IAggregationService
     /// </summary>
     /// <param name="query">The query to use when fetching data.</param>
     /// <param name="cancellationToken">Token used in case cancellation takes place.</param>
-    /// <returns>Task to await with the custom AggregatedResponsDto, containing the filtered,
+    /// <returns>Task to await with the custom AggregatedResponseDto, containing the filtered,
     /// and sorted items result list.</returns>
     public async Task<AggregatedResponseDto> GetAggregatedDataAsync(AggregationQuery query, CancellationToken cancellationToken) {
         // Get tasks from all providers...
